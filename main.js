@@ -93,7 +93,7 @@ function sendCommand(cmd, ...args) {
 }
 
 function createWindow() {
-  const display = screen.getDisplayNearestPoint(screen.getCursorScreenPoint());
+  const display = activeDisplay();
   currentDisplayId = display.id;
   const { workArea } = display;
   win = new BrowserWindow({
@@ -134,11 +134,50 @@ function createWindow() {
 }
 
 // ---------- Multi-monitor ----------
-// The overlay covers one display at a time: the one with the mouse pointer when the character
-// walks on screen. (An app can't know which screen you look at; the pointer is the best signal.)
+// The overlay covers one display at a time: the one holding the window the user is working in
+// (the foreground window). Falls back to the mouse pointer when that can't be determined.
+
+let activeDisplayOverride = null; // set by the self-test
+let foregroundWindowCenter = null; // () => DIP point | 'ours' | null; Windows only
+
+// Two read-only user32 calls via koffi (an FFI library): which window has focus, and where it is.
+function initForegroundWindowLookup() {
+  if (process.platform !== 'win32') return;
+  try {
+    const koffi = require('koffi');
+    const user32 = koffi.load('user32.dll');
+    koffi.struct('RECT', { left: 'long', top: 'long', right: 'long', bottom: 'long' });
+    const GetForegroundWindow = user32.func('void *GetForegroundWindow()');
+    const GetWindowRect = user32.func('bool GetWindowRect(void *hWnd, _Out_ RECT *rect)');
+    const IsIconic = user32.func('bool IsIconic(void *hWnd)');
+    const GetWindowThreadProcessId = user32.func('uint32 GetWindowThreadProcessId(void *hWnd, _Out_ uint32 *pid)');
+    foregroundWindowCenter = () => {
+      const hwnd = GetForegroundWindow();
+      if (!hwnd || IsIconic(hwnd)) return null;
+      const pid = [0];
+      GetWindowThreadProcessId(hwnd, pid);
+      if (pid[0] === process.pid) return 'ours'; // the cat itself, or its tray menu
+      const r = {};
+      if (!GetWindowRect(hwnd, r)) return null;
+      const center = screen.screenToDipPoint({ x: (r.left + r.right) / 2, y: (r.top + r.bottom) / 2 });
+      // The desktop background spans every display; it says nothing about which one is in use.
+      const area = screen.getDisplayNearestPoint(center).bounds;
+      if (r.right - r.left > area.width * 1.5 * screen.getDisplayNearestPoint(center).scaleFactor) return null;
+      return center;
+    };
+  } catch (err) {
+    console.warn(`Active-window lookup unavailable, following the mouse instead: ${err.message}`);
+  }
+}
 
 function activeDisplay() {
-  return screen.getDisplayNearestPoint(screen.getCursorScreenPoint());
+  if (activeDisplayOverride) return activeDisplayOverride;
+  const center = foregroundWindowCenter && foregroundWindowCenter();
+  if (center === 'ours') {
+    const current = screen.getAllDisplays().find((d) => d.id === currentDisplayId);
+    if (current) return current;
+  }
+  return screen.getDisplayNearestPoint(center && center !== 'ours' ? center : screen.getCursorScreenPoint());
 }
 
 function moveToDisplay(display) {
@@ -159,7 +198,7 @@ function summon() {
   else sendCommand('summon');
 }
 
-// When the pointer has been on another display for a few seconds, ask the renderer to walk the
+// When the user has been working on another display for a few seconds, ask the renderer to walk the
 // character over there (it walks off this screen and enters on the other).
 function startDisplayFollower() {
   let strikes = 0;
@@ -345,20 +384,21 @@ async function runSelfTest() {
     await js('document.querySelector("#bubble button.primary").click()');
     results.leftAfterAnswer = await until('companion.debug().away', 25000);
 
-    // Multi-monitor: pretend the pointer is on each display in turn (the real mouse isn't moved)
-    // and check the character walks in on that display.
-    const realCursor = screen.getCursorScreenPoint;
+    // Multi-monitor: pretend each display in turn is the one being worked on and check the
+    // character walks in there. Also record what the real active-window lookup reports.
+    results.activeWindowLookup = foregroundWindowCenter ? 'available' : 'unavailable (mouse fallback)';
+    results.activeDisplayNow = activeDisplay().id;
     results.displays = [];
     for (const display of screen.getAllDisplays()) {
-      const { x, y, width, height } = display.workArea;
-      screen.getCursorScreenPoint = () => ({ x: x + width / 2, y: y + height / 2 });
+      const { width, height } = display.workArea;
+      activeDisplayOverride = display;
       summon();
       const arrived = await until(`!companion.debug().away && companion.debug().motion !== 'walk' && innerWidth === ${width} && innerHeight === ${height}`, 30000);
       await wait(2500);
       await snap(`display-${display.id}`);
       results.displays.push({ id: display.id, workArea: display.workArea, arrived, windowBounds: win.getBounds() });
     }
-    screen.getCursorScreenPoint = realCursor;
+    activeDisplayOverride = null;
     results.final = await js('companion.debug()');
   } catch (err) {
     results.error = err.stack || String(err);
@@ -398,6 +438,7 @@ if (!SELFTEST && !app.requestSingleInstanceLock()) {
 } else {
   app.whenReady().then(() => {
     ensureDataDir();
+    initForegroundWindowLookup();
     config = loadConfig();
     createWindow();
     if (SELFTEST) {

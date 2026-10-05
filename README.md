@@ -42,6 +42,7 @@ The first hydration reminder comes after 1 minute (`config.json` → `hydration.
   - Sleep, Remind me now, Settings, Character folder, Reload, Launch at startup and Quit.
 - When the computer has been idle for 10 minutes, the character falls asleep, and it wakes when you return. Clicking a sleeping character also wakes it.
 - Clicks anywhere else go straight through to the windows underneath.
+- **Multiple monitors:** the character appears on the screen holding the window you're working in (the focused window). If you work in a window on another screen for a few seconds, it walks over there. Moving the mouse alone doesn't move it. This uses two read-only Windows calls through the `koffi` package; if those aren't available it follows the mouse pointer instead.
 
 ## Settings: `config.json`
 
