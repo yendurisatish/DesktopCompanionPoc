@@ -1,0 +1,175 @@
+html, body {
+  margin: 0;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  background: transparent;
+  user-select: none;
+  font-family: 'Segoe UI', system-ui, sans-serif;
+}
+
+#companion {
+  position: absolute;
+  left: 0;
+  top: 0;
+  will-change: transform;
+}
+
+#avatar {
+  position: relative;
+  cursor: grab;
+}
+body.dragging #avatar { cursor: grabbing; }
+#avatar.flipped { transform: scaleX(-1); }
+#avatar svg { display: block; overflow: visible; }
+#avatar video {
+  position: absolute;
+  bottom: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  pointer-events: auto;
+}
+
+/* Speech bubble */
+#bubble {
+  --shift: 0px;
+  position: absolute;
+  left: 50%;
+  bottom: calc(100% + 12px);
+  transform: translateX(calc(-50% + var(--shift)));
+  width: max-content;
+  max-width: 260px;
+  padding: 12px 16px;
+  border-radius: 16px;
+  background: #fff;
+  color: #1d2330;
+  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.28), 0 0 0 1px rgba(0, 0, 0, 0.06);
+  font-size: 15px;
+  font-weight: 600;
+  line-height: 1.35;
+  text-align: center;
+  animation: bubble-pop 0.18s ease-out;
+}
+#bubble::after {
+  content: '';
+  position: absolute;
+  top: 100%;
+  left: calc(50% - var(--shift) - 8px);
+  border: 8px solid transparent;
+  border-top-color: #fff;
+}
+#bubble .actions {
+  display: flex;
+  gap: 8px;
+  justify-content: center;
+  margin-top: 10px;
+}
+#bubble button {
+  font: inherit;
+  font-size: 13px;
+  border: 0;
+  border-radius: 999px;
+  padding: 6px 14px;
+  cursor: pointer;
+  background: #eef1f6;
+  color: #1d2330;
+}
+#bubble button:hover { background: #e1e6ee; }
+#bubble button.primary { background: #2f7cf6; color: #fff; }
+#bubble button.primary:hover { background: #2369d9; }
+
+@keyframes bubble-pop {
+  from { opacity: 0; transform: translateX(calc(-50% + var(--shift))) translateY(6px) scale(0.92); }
+  to { opacity: 1; transform: translateX(calc(-50% + var(--shift))); }
+}
+
+/* ---------- Person character ---------- */
+.ph * { transform-box: view-box; }
+.ph .no-hit { pointer-events: none; }
+.ph .body { transform-origin: 100px 340px; }
+.ph .leg-l { transform-origin: 89px 214px; }
+.ph .leg-r { transform-origin: 110px 214px; }
+.ph .arm-l { transform-origin: 67px 142px; transition: transform 0.25s ease; }
+.ph .arm-r { transform-origin: 133px 142px; transition: transform 0.25s ease; }
+.ph .bottle { transform-origin: 133px 220px; display: none; }
+.ph .head { transform-origin: 100px 122px; transition: transform 0.3s ease; }
+.ph .brow { transition: transform 0.2s ease; }
+.ph .brow-l { transform-origin: 86px 70px; }
+.ph .brow-r { transform-origin: 114px 70px; }
+.ph .eyes-open { transition: transform 0.2s ease; }
+.ph .blink { transform-box: fill-box; transform-origin: center; animation: blink 4.6s infinite; }
+.ph .zzz { display: none; }
+.ph .blush { opacity: 0; transition: opacity 0.3s ease; }
+
+/* Expressions: show one eye and mouth variant, move the brows. */
+.ph .eyes > *, .ph .mouth > * { display: none; }
+.expr-neutral .eyes-open, .expr-neutral .mouth-smile { display: inline; }
+.expr-happy .eyes-happy, .expr-happy .mouth-grin { display: inline; }
+.expr-happy .blush { opacity: 0.45; }
+.expr-surprised .eyes-wide, .expr-surprised .mouth-o { display: inline; }
+.expr-surprised .brow { transform: translateY(-6px); }
+.expr-annoyed .eyes-narrow, .expr-annoyed .mouth-flat { display: inline; }
+.expr-annoyed .brow-l { transform: translateY(2px) rotate(16deg); }
+.expr-annoyed .brow-r { transform: translateY(2px) rotate(-16deg); }
+.expr-sad .eyes-open, .expr-sad .mouth-frown { display: inline; }
+.expr-sad .brow-l { transform: rotate(-14deg); }
+.expr-sad .brow-r { transform: rotate(14deg); }
+.expr-sleepy .eyes-closed, .expr-sleepy .mouth-flat { display: inline; }
+.expr-sleepy .brow { transform: translateY(3px); }
+.expr-thinking .eyes-open, .expr-thinking .mouth-side { display: inline; }
+.expr-thinking .eyes-open { transform: translate(3px, -3px); }
+.expr-thinking .brow-r { transform: translateY(-6px); }
+
+/* Motions */
+.ph.motion-idle .body, .ph.motion-hold_bottle .body { animation: breathe 3.4s ease-in-out infinite; }
+
+.ph.motion-walk .body { animation: bob 0.32s ease-in-out infinite; transform: rotate(3deg); }
+.ph.motion-walk .leg-l { animation: step 0.64s ease-in-out infinite; }
+.ph.motion-walk .leg-r { animation: step 0.64s ease-in-out infinite -0.32s; }
+.ph.motion-walk .arm-l { animation: swing 0.64s ease-in-out infinite; }
+.ph.motion-walk .arm-r { animation: swing 0.64s ease-in-out infinite -0.32s; }
+
+.ph.motion-hold_bottle .arm-r { transform: rotate(-150deg); }
+.ph.motion-hold_bottle .bottle { display: inline; transform: rotate(150deg); }
+
+.ph.motion-drink .arm-r { transform: rotate(140deg) scaleY(0.7); }
+.ph.motion-drink .bottle { display: inline; transform: scale(1, 1.4286) rotate(-200deg); }
+.ph.motion-drink .head { transform: rotate(-6deg); }
+
+.ph.motion-celebrate .body { animation: jump 0.9s ease-out 2; }
+.ph.motion-celebrate .arm-l { transform: rotate(150deg); }
+.ph.motion-celebrate .arm-r { transform: rotate(-150deg); }
+
+.ph.motion-wave .arm-l { animation: wave 0.4s ease-in-out 4 alternate; transform: rotate(150deg); }
+
+.ph.motion-sleep .head { transform: rotate(12deg); }
+.ph.motion-sleep .body { transform: translateY(3px); }
+.ph.motion-sleep .zzz { display: inline; }
+.ph.motion-sleep .zzz text { animation: float-z 2.4s ease-in-out infinite; }
+.ph.motion-sleep .zzz text:nth-child(2) { animation-delay: -0.8s; }
+.ph.motion-sleep .zzz text:nth-child(3) { animation-delay: -1.6s; }
+
+.ph.motion-dangle .arm-l { transform: rotate(40deg); }
+.ph.motion-dangle .arm-r { transform: rotate(-40deg); }
+.ph.motion-dangle .leg-l { animation: dangle 0.9s ease-in-out infinite; }
+.ph.motion-dangle .leg-r { animation: dangle 0.9s ease-in-out infinite -0.45s; }
+
+@keyframes blink { 0%, 93%, 100% { transform: scaleY(1); } 96% { transform: scaleY(0.1); } }
+@keyframes breathe { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-1.5px); } }
+@keyframes bob { 0%, 100% { transform: rotate(3deg) translateY(0); } 50% { transform: rotate(3deg) translateY(-4px); } }
+@keyframes step { 0%, 50%, 100% { transform: translateY(0); } 25% { transform: translateY(-9px); } }
+@keyframes swing { 0%, 100% { transform: rotate(9deg); } 50% { transform: rotate(-9deg); } }
+@keyframes jump {
+  0% { transform: translateY(0) scale(1, 1); }
+  15% { transform: translateY(0) scale(1.05, 0.94); }
+  45% { transform: translateY(-32px) scale(0.97, 1.03); }
+  80% { transform: translateY(0) scale(1.04, 0.96); }
+  100% { transform: translateY(0) scale(1, 1); }
+}
+@keyframes wave { from { transform: rotate(135deg); } to { transform: rotate(168deg); } }
+@keyframes dangle { 0%, 100% { transform: rotate(6deg); } 50% { transform: rotate(-6deg); } }
+@keyframes float-z {
+  0% { opacity: 0; transform: translate(0, 0); }
+  30% { opacity: 1; }
+  100% { opacity: 0; transform: translate(14px, -30px); }
+}

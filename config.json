@@ -1,0 +1,21 @@
+{
+  "userName": "Satish",
+  "presence": "reminders",
+  "hydration": {
+    "firstReminderMinutes": 1,
+    "intervalMinutes": 45,
+    "snoozeMinutes": 10,
+    "unansweredSnoozeSeconds": 90
+  },
+  "walk": {
+    "speed": 90,
+    "minPauseSeconds": 4,
+    "maxPauseSeconds": 14
+  },
+  "character": {
+    "builtin": "cat",
+    "height": 150
+  },
+  "autoSleepAfterIdleMinutes": 10,
+  "apiPort": 47811
+}

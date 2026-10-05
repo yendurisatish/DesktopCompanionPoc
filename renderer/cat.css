@@ -1,0 +1,87 @@
+/* Scottish Fold cat. Expression eye/mouth/brow rules are shared with the person (style.css). */
+.cat * { transform-box: view-box; }
+.cat .no-hit { pointer-events: none; }
+/* Low specificity so the shared .expr-* rules in style.css can show one variant. */
+:where(.cat) .eyes > *, :where(.cat) .mouth > * { display: none; }
+
+/* Pivots (viewBox units): body rotates about the front paws, legs about shoulder/hip. */
+.cat .all { transform-origin: 167px 188px; transition: transform 0.45s ease; }
+.cat .tail { --tail: 0deg; transform-origin: 62px 127px; transition: transform 0.45s ease; }
+.cat .leg { transition: transform 0.35s ease; }
+.cat .leg-bf { transform-origin: 90px 134px; }
+.cat .leg-bn { transform-origin: 76px 134px; }
+.cat .leg-ff { transform-origin: 156px 130px; }
+.cat .leg-fn { transform-origin: 168px 130px; }
+.cat .bottle { transform-origin: 167px 185px; display: none; }
+.cat .head { transform-origin: 186px 118px; transition: transform 0.4s ease; }
+.cat .brow { transition: transform 0.2s ease; }
+.cat .brow-l { transform-origin: 173px 71px; }
+.cat .brow-r { transform-origin: 203px 71px; }
+.cat .pupil { transition: transform 0.25s ease; }
+.cat .blink { transform-box: fill-box; transform-origin: center; animation: blink 5.6s infinite; }
+.cat .zzz, .cat .tongue { display: none; }
+.cat .blush { opacity: 0; transition: opacity 0.3s ease; }
+
+/* Realistic eyes: look up-and-aside with the pupils only, not the whole eye. */
+.cat.expr-thinking .eyes-open { transform: none; }
+.cat.expr-thinking .pupil { transform: translate(2.5px, -2.5px); }
+.cat.expr-happy .blush { opacity: 0.3; }
+
+/* ---------- Motions ---------- */
+.cat.motion-idle .all, .cat.motion-hold_bottle .all { animation: breathe 3.6s ease-in-out infinite; }
+.cat.motion-idle .tail, .cat.motion-sit .tail { animation: cat-tail-swish 4s ease-in-out infinite; }
+
+.cat.motion-walk .all { animation: cat-bob 0.3s ease-in-out infinite alternate; }
+.cat.motion-walk .head { animation: cat-head-bob 0.6s ease-in-out infinite; }
+.cat.motion-walk .leg-bn, .cat.motion-walk .leg-ff { animation: cat-step 0.6s ease-in-out infinite; }
+.cat.motion-walk .leg-bf, .cat.motion-walk .leg-fn { animation: cat-step 0.6s ease-in-out infinite -0.3s; }
+.cat.motion-walk .tail { animation: cat-tail-swish 1.2s ease-in-out infinite; }
+
+/* Sitting: rear lowers by rotating the body about the front paws, front legs stay vertical,
+   hind legs tuck under, head stays level, tail curls along the floor. */
+.cat.motion-sit .all, .cat.motion-groom .all { transform: rotate(-14deg); }
+.cat.motion-sit .leg-fn, .cat.motion-sit .leg-ff, .cat.motion-groom .leg-ff { transform: rotate(14deg); }
+.cat.motion-sit .leg-bn, .cat.motion-sit .leg-bf,
+.cat.motion-groom .leg-bn, .cat.motion-groom .leg-bf { transform: rotate(-55deg) scaleY(0.8); }
+.cat.motion-sit .head { transform: rotate(14deg); }
+.cat.motion-sit .tail, .cat.motion-groom .tail { --tail: 25deg; transform: rotate(var(--tail)); }
+
+/* Grooming: sit, lift the near paw to the mouth and lick it. */
+.cat.motion-groom .leg-fn { animation: cat-lick-paw 0.65s ease-in-out 4 alternate; transform: rotate(-112deg) scaleY(0.82); }
+.cat.motion-groom .head { transform: rotate(22deg); }
+.cat.motion-groom .tongue { display: inline; animation: cat-lick 0.65s ease-in-out 4 alternate; }
+
+.cat.motion-hold_bottle .leg-fn { transform: rotate(-100deg); }
+.cat.motion-hold_bottle .bottle { display: inline; transform: rotate(100deg); }
+
+.cat.motion-drink .leg-fn { transform: rotate(-125deg); }
+.cat.motion-drink .bottle { display: inline; transform: rotate(35deg); }
+.cat.motion-drink .head { transform: rotate(-6deg); }
+
+.cat.motion-celebrate .all { animation: jump 0.9s ease-out 2; }
+.cat.motion-celebrate .tail { transform: rotate(85deg); }
+.cat.motion-celebrate .leg-fn, .cat.motion-celebrate .leg-ff { transform: rotate(-50deg); }
+
+.cat.motion-wave .leg-fn { animation: paw-wave 0.35s ease-in-out 4 alternate; transform: rotate(-120deg); }
+
+/* Sleeping loaf: legs tucked, body on the floor, head lowered. */
+.cat.motion-sleep .all { transform: translateY(15px); }
+.cat.motion-sleep .leg { transform: scaleY(0.32); }
+.cat.motion-sleep .head { transform: rotate(10deg) translateY(4px); }
+.cat.motion-sleep .tail { transform: rotate(30deg); }
+.cat.motion-sleep .zzz { display: inline; }
+.cat.motion-sleep .zzz text { animation: float-z 2.4s ease-in-out infinite; }
+.cat.motion-sleep .zzz text:nth-child(2) { animation-delay: -0.8s; }
+.cat.motion-sleep .zzz text:nth-child(3) { animation-delay: -1.6s; }
+
+.cat.motion-dangle .leg { animation: dangle 0.9s ease-in-out infinite; }
+.cat.motion-dangle .leg-ff, .cat.motion-dangle .leg-bn { animation-delay: -0.45s; }
+.cat.motion-dangle .tail { transform: rotate(-25deg); }
+
+@keyframes cat-step { 0%, 100% { transform: rotate(16deg); } 50% { transform: rotate(-16deg); } }
+@keyframes cat-bob { from { transform: translateY(0); } to { transform: translateY(-2.5px); } }
+@keyframes cat-head-bob { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(1.5px); } }
+@keyframes cat-tail-swish { 0%, 100% { transform: rotate(var(--tail)); } 50% { transform: rotate(calc(var(--tail) + 8deg)); } }
+@keyframes cat-lick-paw { from { transform: rotate(-104deg) scaleY(0.82); } to { transform: rotate(-118deg) scaleY(0.82); } }
+@keyframes cat-lick { from { transform: translateY(0); } to { transform: translateY(2.5px); } }
+@keyframes paw-wave { from { transform: rotate(-110deg); } to { transform: rotate(-140deg); } }

@@ -1,0 +1,14 @@
+{
+  "facing": "right",
+  "height": 260,
+  "clips": {
+    "idle": { "src": "idle.webm" },
+    "walk": { "src": "walk.webm" },
+    "hold_bottle": { "src": "hold_bottle.webm" },
+    "drink": { "src": "drink.webm", "loop": false },
+    "celebrate": { "src": "celebrate.webm", "loop": false },
+    "wave": { "src": "wave.webm", "loop": false },
+    "sleep": { "src": "sleep.webm" },
+    "dangle": { "src": "dangle.webm" }
+  }
+}
