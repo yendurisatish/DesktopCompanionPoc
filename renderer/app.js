@@ -160,6 +160,7 @@
   function walkTo(x, callback = null, stayOnScreen = true) {
     clearTimeout(fidgetTimer);
     restingMotion = 'idle';
+    leaving = false;
     target = stayOnScreen ? clampX(x) : x;
     onArrive = callback;
   }
@@ -191,8 +192,29 @@
 
   // ---------- Presence: walking on and off screen ----------
 
+  // Walk on screen from a random edge of the display the user is on. Resolves once positioned.
+  let entering = null;
   function enter() {
-    if (!away) return;
+    if (!away) return Promise.resolve();
+    if (!entering) entering = moveToActiveDisplay().then(placeAtEdge).finally(() => (entering = null));
+    return entering;
+  }
+
+  async function moveToActiveDisplay() {
+    const bounds = await host.moveToActiveDisplay();
+    if (window.innerWidth === bounds.width && window.innerHeight === bounds.height) return;
+    // Wait for the page to see its new size before placing the character.
+    await new Promise((resolve) => {
+      const done = () => {
+        window.removeEventListener('resize', done);
+        resolve();
+      };
+      window.addEventListener('resize', done);
+      setTimeout(done, 500);
+    });
+  }
+
+  function placeAtEdge() {
     away = false;
     const fromLeft = Math.random() < 0.5;
     pos.x = fromLeft ? -size.width / 2 : window.innerWidth + size.width / 2;
@@ -201,21 +223,31 @@
     host.setPresent(true);
   }
 
-  function leave() {
+  let leaving = false;
+  function leave(onGone) {
     if (away) return;
     leaveAt = Infinity;
     hideBubble();
     const toLeft = pos.x < window.innerWidth / 2;
     walkTo(toLeft ? -size.width : window.innerWidth + size.width, () => {
+      leaving = false;
       away = true;
       setInteractive(false);
       host.setPresent(false);
+      if (onGone) onGone();
     }, false);
+    leaving = true; // after walkTo, which clears it for any other walk
+  }
+
+  // The user moved to another monitor: walk off this one and come in on theirs.
+  function relocate() {
+    if (away || leaving || dragging || mode !== 'wander') return;
+    leave(() => visit(presence === 'always' ? 0 : 10));
   }
 
   // A short visit: walk in, hang around for `seconds` (when only showing up for reminders), leave.
-  function visit(seconds, onArrived) {
-    enter();
+  async function visit(seconds, onArrived) {
+    await enter();
     walkTo(rand(size.width * 1.5, window.innerWidth - size.width * 1.5), () => {
       settle();
       nextWanderAt = now() + seconds * 1000;
@@ -264,8 +296,9 @@
     mode = 'reminder';
     reminderPresented = false;
     leaveAt = Infinity;
-    enter();
-    approachForReminder();
+    enter().then(() => {
+      if (mode === 'reminder' && !reminderPresented) approachForReminder();
+    });
   }
 
   // Stand far enough from the screen edges that the bubble fits.
@@ -515,7 +548,7 @@
       }
     } else if (mode === 'wander' && !dragging && !away && t >= pausedUntil) {
       if (t >= leaveAt) leave();
-      else if (t >= nextWanderAt) wanderStep();
+      else if (t >= nextWanderAt && leaveAt === Infinity) wanderStep(); // no strolling when about to leave
     }
 
     if (t >= emotionResetAt) {
@@ -548,6 +581,7 @@
   }
 
   window.addEventListener('resize', () => {
+    if (away) return; // placed afresh when it next walks on
     pos.x = clampX(pos.x);
     if (!dragging) pos.y = Math.min(pos.y, ground());
     if (target !== null) target = clampX(target);
@@ -587,6 +621,7 @@
       });
     },
     hydrate: startHydration,
+    relocate,
     summon: () => (mode === 'wander' ? visit(20, () => say(lines.greeting(cfg.userName), { seconds: 3 })) : undefined),
     setPresence,
     sleep,
@@ -610,7 +645,7 @@
   };
   window.companion = api;
 
-  const HOST_COMMANDS = ['setPosition', 'playMotion', 'setExpression', 'say', 'walkTo', 'hydrate', 'summon', 'setPresence', 'sleep', 'wake', 'visibility'];
+  const HOST_COMMANDS = ['setPosition', 'playMotion', 'setExpression', 'say', 'walkTo', 'hydrate', 'summon', 'relocate', 'setPresence', 'sleep', 'wake', 'visibility'];
   host.onCommand(({ cmd, args }) => {
     if (HOST_COMMANDS.includes(cmd)) api[cmd](...args);
     else console.warn(`Unknown command "${cmd}"`);

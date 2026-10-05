@@ -31,6 +31,7 @@ let win = null;
 let tray = null;
 let visible = true; // user's Show/Hide choice
 let present = false; // whether the character is currently on screen (renderer decides)
+let currentDisplayId = null; // display the overlay window covers
 let sleeping = false;
 let autoSlept = false;
 
@@ -92,7 +93,9 @@ function sendCommand(cmd, ...args) {
 }
 
 function createWindow() {
-  const { workArea } = screen.getPrimaryDisplay();
+  const display = screen.getDisplayNearestPoint(screen.getCursorScreenPoint());
+  currentDisplayId = display.id;
+  const { workArea } = display;
   win = new BrowserWindow({
     ...workArea,
     transparent: true,
@@ -120,10 +123,54 @@ function createWindow() {
     if (SELFTEST || level === 'warning' || level === 'error') console.log(`[renderer] ${message}`);
   });
 
-  const fitToWorkArea = () => win && !win.isDestroyed() && win.setBounds(screen.getPrimaryDisplay().workArea);
+  // Keep covering the same display when displays change (or the primary one if ours was unplugged).
+  const fitToWorkArea = () => {
+    const display = screen.getAllDisplays().find((d) => d.id === currentDisplayId) || screen.getPrimaryDisplay();
+    moveToDisplay(display);
+  };
   screen.on('display-metrics-changed', fitToWorkArea);
   screen.on('display-added', fitToWorkArea);
   screen.on('display-removed', fitToWorkArea);
+}
+
+// ---------- Multi-monitor ----------
+// The overlay covers one display at a time: the one with the mouse pointer when the character
+// walks on screen. (An app can't know which screen you look at; the pointer is the best signal.)
+
+function activeDisplay() {
+  return screen.getDisplayNearestPoint(screen.getCursorScreenPoint());
+}
+
+function moveToDisplay(display) {
+  if (!win || win.isDestroyed()) return;
+  currentDisplayId = display.id;
+  // Moving between displays with different scaling can land slightly off; a second setBounds settles it.
+  for (let i = 0; i < 2; i++) {
+    const b = win.getBounds();
+    const w = display.workArea;
+    if (b.x === w.x && b.y === w.y && b.width === w.width && b.height === w.height) break;
+    win.setBounds(w);
+  }
+}
+
+// "Call it over": come to the display the user is on, even if already showing on another one.
+function summon() {
+  if (present && activeDisplay().id !== currentDisplayId) sendCommand('relocate');
+  else sendCommand('summon');
+}
+
+// When the pointer has been on another display for a few seconds, ask the renderer to walk the
+// character over there (it walks off this screen and enters on the other).
+function startDisplayFollower() {
+  let strikes = 0;
+  setInterval(() => {
+    if (!present || !visible || activeDisplay().id === currentDisplayId) {
+      strikes = 0;
+      return;
+    }
+    strikes++;
+    if (strikes % 10 === 3) sendCommand('relocate');
+  }, 1000);
 }
 
 function loginItemOptions() {
@@ -149,7 +196,7 @@ function toggleVisible() {
 
 function rebuildTrayMenu() {
   tray.setContextMenu(Menu.buildFromTemplate([
-    { label: 'Call it over now', click: () => sendCommand('summon') },
+    { label: 'Call it over now', click: summon },
     {
       label: 'Only show up for reminders',
       type: 'checkbox',
@@ -181,7 +228,7 @@ function rebuildTrayMenu() {
 function createTray() {
   tray = new Tray(nativeImage.createFromPath(path.join(__dirname, 'assets', 'tray.png')));
   tray.setToolTip('Desktop Companion');
-  tray.on('click', () => sendCommand('summon'));
+  tray.on('click', summon);
   rebuildTrayMenu();
 }
 
@@ -231,6 +278,7 @@ function startApi(port) {
       const bounds = win.getBounds();
       if (cmd === 'setPosition') sendCommand(cmd, args[0] - bounds.x, args[1] - bounds.y);
       else if (cmd === 'walkTo') sendCommand(cmd, args[0] - bounds.x);
+      else if (cmd === 'summon') summon();
       else sendCommand(cmd, ...args);
       reply(202, { ok: true });
     });
@@ -296,6 +344,21 @@ async function runSelfTest() {
     await snap('reminder-return');
     await js('document.querySelector("#bubble button.primary").click()');
     results.leftAfterAnswer = await until('companion.debug().away', 25000);
+
+    // Multi-monitor: pretend the pointer is on each display in turn (the real mouse isn't moved)
+    // and check the character walks in on that display.
+    const realCursor = screen.getCursorScreenPoint;
+    results.displays = [];
+    for (const display of screen.getAllDisplays()) {
+      const { x, y, width, height } = display.workArea;
+      screen.getCursorScreenPoint = () => ({ x: x + width / 2, y: y + height / 2 });
+      summon();
+      const arrived = await until(`!companion.debug().away && companion.debug().motion !== 'walk' && innerWidth === ${width} && innerHeight === ${height}`, 30000);
+      await wait(2500);
+      await snap(`display-${display.id}`);
+      results.displays.push({ id: display.id, workArea: display.workArea, arrived, windowBounds: win.getBounds() });
+    }
+    screen.getCursorScreenPoint = realCursor;
     results.final = await js('companion.debug()');
   } catch (err) {
     results.error = err.stack || String(err);
@@ -309,6 +372,11 @@ ipcMain.handle('get-init', () => {
   // The self-test needs the character on screen the whole time.
   if (SELFTEST) config.presence = 'always';
   return { config, character: loadCharacterManifest() };
+});
+// Before the character walks on screen, move the overlay to the display the user is on.
+ipcMain.handle('move-to-active-display', () => {
+  moveToDisplay(activeDisplay());
+  return win.getContentBounds();
 });
 ipcMain.on('set-present', (_event, value) => {
   present = Boolean(value);
@@ -338,6 +406,7 @@ if (!SELFTEST && !app.requestSingleInstanceLock()) {
     }
     createTray();
     startIdleMonitor();
+    startDisplayFollower();
     startApi(config.apiPort);
   });
 }

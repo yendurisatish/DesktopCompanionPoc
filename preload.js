@@ -6,6 +6,7 @@ contextBridge.exposeInMainWorld('companionHost', {
   readCharacterFile: (name) => ipcRenderer.invoke('read-character-file', name),
   setIgnoreMouse: (ignore) => ipcRenderer.send('set-ignore-mouse', ignore),
   setPresent: (present) => ipcRenderer.send('set-present', present),
+  moveToActiveDisplay: () => ipcRenderer.invoke('move-to-active-display'),
   reportState: (state) => ipcRenderer.send('state', state),
   onCommand: (callback) => ipcRenderer.on('command', (_event, msg) => callback(msg)),
 });
